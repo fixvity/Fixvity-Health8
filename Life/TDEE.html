@@ -1,0 +1,242 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>TDEE Calculator – Medical Standard</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<style>
+:root{
+  --primary:#2563eb;
+  --bg:#f4f7fb;
+  --card:#ffffff;
+  --radius:16px;
+  --text:#1f2937;
+  --muted:#6b7280;
+}
+*{box-sizing:border-box}
+body{
+  margin:0;
+  font-family:Inter,system-ui,Arial;
+  background:var(--bg);
+  color:var(--text);
+}
+.container{max-width:1100px;margin:auto;padding:20px}
+.card{
+  background:var(--card);
+  border-radius:var(--radius);
+  padding:28px;
+  box-shadow:0 14px 36px rgba(0,0,0,.08);
+  margin-bottom:20px;
+}
+h1,h2{margin:0 0 10px;color:var(--primary)}
+small{color:var(--muted)}
+
+.grid{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:16px;
+}
+.field{display:flex;flex-direction:column}
+.field label{font-size:14px;margin-bottom:6px}
+.field input,.field select{
+  height:52px;
+  padding:12px 14px;
+  font-size:16px;
+  border-radius:10px;
+  border:1px solid #ddd;
+}
+
+button{
+  width:100%;
+  padding:18px;
+  background:var(--primary);
+  color:#fff;
+  border:none;
+  border-radius:14px;
+  font-size:18px;
+  cursor:pointer;
+}
+
+.print-btn{
+  background:#111;
+  margin-top:10px;
+}
+
+.results{
+  display:grid;
+  grid-template-columns:repeat(auto-fit,minmax(200px,1fr));
+  gap:16px;
+}
+.box{
+  background:#f8fafc;
+  padding:18px;
+  border-radius:12px;
+  text-align:center;
+}
+.box b{font-size:22px}
+
+canvas{max-width:100%;margin-top:20px}
+
+.note{
+  background:#f1f5f9;
+  padding:16px;
+  border-radius:12px;
+  font-size:14px;
+  line-height:1.6;
+}
+
+/* ===== PRINT STYLES ===== */
+@media print{
+  body{background:#fff}
+  .container{padding:0}
+  .card{box-shadow:none;border:1px solid #ddd}
+  button,.grid{display:none}
+  canvas{max-width:100%}
+}
+</style>
+</head>
+
+<body>
+<div class="container">
+
+<!-- INPUT -->
+<div class="card">
+<h1>TDEE Calculator</h1>
+<small>Total Daily Energy Expenditure · Medical standard</small>
+
+<div class="grid">
+
+  <div class="field">
+    <label>Units</label>
+    <select id="unit">
+      <option value="metric">Metric (kg / cm)</option>
+      <option value="us">US (lb / in)</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Gender</label>
+    <select id="gender">
+      <option value="male">Male</option>
+      <option value="female">Female</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Age</label>
+    <input id="age" type="number">
+  </div>
+
+  <div class="field">
+    <label>Height</label>
+    <input id="height" type="number">
+  </div>
+
+  <div class="field">
+    <label>Weight</label>
+    <input id="weight" type="number">
+  </div>
+
+  <div class="field">
+    <label>Activity level</label>
+    <select id="activity">
+      <option value="1.2">Sedentary</option>
+      <option value="1.375">Light</option>
+      <option value="1.55">Moderate</option>
+      <option value="1.725">Very active</option>
+      <option value="1.9">Athlete</option>
+    </select>
+  </div>
+
+  <div class="field">
+    <label>Goal</label>
+    <select id="goal">
+      <option value="maintain">Maintain weight</option>
+      <option value="lose">Fat loss</option>
+      <option value="gain">Muscle gain</option>
+    </select>
+  </div>
+
+</div>
+
+<br>
+<button onclick="calculate()">Calculate TDEE</button>
+<button class="print-btn" onclick="window.print()">🖨️ Print / Export PDF</button>
+</div>
+
+<!-- RESULTS -->
+<div class="card">
+<div class="results">
+  <div class="box">BMR<br><b id="bmr">—</b> kcal</div>
+  <div class="box">TDEE<br><b id="tdee">—</b> kcal</div>
+  <div class="box">Goal Calories<br><b id="goalCal">—</b> kcal</div>
+</div>
+
+<canvas id="tdeeChart" height="240"></canvas>
+
+<div class="note" id="insight"></div>
+</div>
+
+</div>
+
+<script>
+let chart;
+
+function calculate(){
+  let h=+height.value, w=+weight.value;
+  if(unit.value==="us"){ h*=2.54; w*=0.453592; }
+
+  const a=+age.value, g=gender.value;
+  if(!a||!h||!w){alert("Please fill all fields");return;}
+
+  const bmr = g==="male"
+    ? (10*w + 6.25*h - 5*a + 5)
+    : (10*w + 6.25*h - 5*a - 161);
+
+  const tdee = bmr * +activity.value;
+
+  let finalCalories = tdee;
+  if(goal.value==="lose") finalCalories -= 500;
+  if(goal.value==="gain") finalCalories += 300;
+
+  bmrEl.textContent=Math.round(bmr);
+  tdeeEl.textContent=Math.round(tdee);
+  goalEl.textContent=Math.round(finalCalories);
+
+  insight.innerHTML=`
+  <b>Energy breakdown:</b><br>
+  • BMR: calories at complete rest<br>
+  • Activity energy: daily movement<br>
+  • Goal calories: adjusted intake
+  <br><br>
+  <b>Medical disclaimer:</b>
+  Estimates only. Not intended for pregnancy,
+  eating disorders, or medical conditions.
+  `;
+
+  if(chart) chart.destroy();
+  chart=new Chart(tdeeChart,{
+    type:"pie",
+    data:{
+      labels:["BMR","Activity energy","Goal adjustment"],
+      datasets:[{
+        data:[
+          Math.max(bmr,0),
+          Math.max(tdee-bmr,0),
+          Math.abs(finalCalories-tdee)
+        ],
+        backgroundColor:["#60a5fa","#34d399","#fbbf24"]
+      }]
+    },
+    options:{plugins:{legend:{position:"bottom"}}}
+  });
+}
+
+const bmrEl=bmr, tdeeEl=tdee, goalEl=goalCal, insight=document.getElementById("insight");
+</script>
+
+</body>
+</html>
